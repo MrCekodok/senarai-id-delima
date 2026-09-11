@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-ink: #1c1410;
+  --color-paper: #f6efe6;
+  --color-card: #fffaf4;
+  --color-line: #e6d8c8;
+  --color-delima: #b4234e;
+  --color-delima-deep: #8a1638;
+  --color-leaf: #1f6b57;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-ink);
+  background:
+    radial-gradient(circle at top left, rgba(180, 35, 78, 0.08), transparent 28%),
+    var(--color-paper);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: rgba(180, 35, 78, 0.18);
+}
