@@ -24,7 +24,7 @@ export function makeClient() {
   return getClient()
 }
 
-export async function fetchMurid(db: SupabaseClient) {
+export async function fetchMurid(db: SupabaseClient, adminId: string) {
   const pageSize = 1000
   const all: Murid[] = []
 
@@ -32,6 +32,7 @@ export async function fetchMurid(db: SupabaseClient) {
     const { data, error } = await db
       .from("murid")
       .select("id, kelas, id_delima, nama, created_at, updated_at")
+      .eq("admin_id", adminId)
       .order("kelas", { ascending: true })
       .order("nama", { ascending: true })
       .range(from, from + pageSize - 1)
@@ -65,26 +66,48 @@ export async function searchMuridByNama(db: SupabaseClient, nama: string) {
   return ((data ?? []) as MuridCarian[]).filter((row) => row.nama)
 }
 
-export async function upsertMurid(db: SupabaseClient, rows: CsvRow[]) {
-  const payload = rows.map((row) => ({
-    kelas: row.kelas,
-    id_delima: row.id_delima,
-    nama: row.nama || null,
-    updated_at: new Date().toISOString(),
-  }))
+export async function upsertMurid(db: SupabaseClient, rows: CsvRow[], adminId: string) {
+  const ids = rows.map((row) => row.id_delima)
+  const existing: { id_delima: string; admin_id: string | null }[] = []
+  const chunkSize = 200
 
-  const { error } = await db.from("murid").upsert(payload, {
-    onConflict: "id_delima",
-  })
+  for (let from = 0; from < ids.length; from += chunkSize) {
+    const chunk = ids.slice(from, from + chunkSize)
+    const { data, error } = await db.from("murid").select("id_delima, admin_id").in("id_delima", chunk)
+    if (error) throw error
+    existing.push(...((data ?? []) as { id_delima: string; admin_id: string | null }[]))
+  }
 
-  if (error) throw error
+  const skipped = existing
+    .filter((row) => row.admin_id && row.admin_id !== adminId)
+    .map((row) => row.id_delima)
+  const blocked = new Set(skipped)
+  const payload = rows
+    .filter((row) => !blocked.has(row.id_delima))
+    .map((row) => ({
+      kelas: row.kelas,
+      id_delima: row.id_delima,
+      nama: row.nama || null,
+      admin_id: adminId,
+      updated_at: new Date().toISOString(),
+    }))
+
+  if (payload.length) {
+    const { error } = await db.from("murid").upsert(payload, {
+      onConflict: "id_delima",
+    })
+    if (error) throw error
+  }
+
+  return { uploaded: payload.length, skipped }
 }
 
-export async function insertMurid(db: SupabaseClient, row: CsvRow) {
+export async function insertMurid(db: SupabaseClient, row: CsvRow, adminId: string) {
   const { error } = await db.from("murid").insert({
     kelas: row.kelas,
     id_delima: row.id_delima,
     nama: row.nama || null,
+    admin_id: adminId,
   })
   if (error) throw error
 }

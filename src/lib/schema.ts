@@ -22,6 +22,28 @@ create table if not exists public.admin (
 
 alter table public.admin enable row level security;
 
+alter table public.murid
+  add column if not exists admin_id uuid references public.admin (id) on delete cascade;
+
+create index if not exists murid_admin_id_idx on public.murid (admin_id);
+
+update public.murid
+set admin_id = (
+  select id from public.admin order by created_at asc limit 1
+)
+where admin_id is null;
+
+alter table public.murid alter column admin_id set default auth.uid();
+
+do $$
+begin
+  if not exists (select 1 from public.murid where admin_id is null) then
+    alter table public.murid alter column admin_id set not null;
+  end if;
+exception
+  when others then null;
+end $$;
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -174,9 +196,13 @@ drop policy if exists "murid_update" on public.murid;
 drop policy if exists "murid_delete" on public.murid;
 
 create policy "murid_select" on public.murid for select using (true);
-create policy "murid_insert" on public.murid for insert to authenticated with check (public.is_admin());
-create policy "murid_update" on public.murid for update to authenticated using (public.is_admin()) with check (public.is_admin());
-create policy "murid_delete" on public.murid for delete to authenticated using (public.is_admin());
+create policy "murid_insert" on public.murid for insert to authenticated
+  with check (public.is_admin() and admin_id = auth.uid());
+create policy "murid_update" on public.murid for update to authenticated
+  using (public.is_admin() and admin_id = auth.uid())
+  with check (public.is_admin() and admin_id = auth.uid());
+create policy "murid_delete" on public.murid for delete to authenticated
+  using (public.is_admin() and admin_id = auth.uid());
 
 drop policy if exists "admin_select_own" on public.admin;
 drop policy if exists "admin_insert_own" on public.admin;

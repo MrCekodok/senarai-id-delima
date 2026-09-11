@@ -21,11 +21,17 @@ export function humanError(err: unknown) {
   if (message.includes("Email not confirmed")) {
     return "Sila sahkan emel dahulu, kemudian log masuk."
   }
+  if (message.includes("admin_id") && (message.includes("schema cache") || message.includes("does not exist"))) {
+    return "Lajur pemilik rekod belum wujud. Jalankan supabase/schema.sql di SQL Editor."
+  }
   if (message.includes("Could not find the function") || message.includes("schema cache")) {
     return "Fungsi daftar admin belum wujud. Jalankan supabase/schema.sql di SQL Editor."
   }
+  if (message.includes("duplicate key") || message.includes("unique constraint")) {
+    return "ID DELIMA ini sudah wujud. Jika ia milik admin lain, anda tidak boleh menukarnya."
+  }
   if (message.includes("row-level security")) {
-    return "Tindakan ini hanya untuk admin yang sudah log masuk. Jalankan SQL skema jika baru disediakan."
+    return "Anda hanya boleh urus ID DELIMA yang anda muat naik."
   }
   return message
 }

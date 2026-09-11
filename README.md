@@ -21,6 +21,8 @@ Templat: `public/contoh-murid.csv`
 
 Pendaftaran akaun ditutup kepada orang ramai. Admin yang sudah log masuk boleh daftar user lain di halaman admin. Akaun dicipta terus tanpa emel pengesahan.
 
+Setiap admin hanya boleh mengurus ID DELIMA yang mereka muat naik. Carian awam masih memaparkan semua rekod.
+
 ```bash
 cp .env.example .env.local
 ```

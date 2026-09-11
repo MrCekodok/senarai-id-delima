@@ -50,11 +50,12 @@ export default function AdminPage() {
   const github = githubRepoUrl()
 
   async function refresh() {
+    if (!admin) return
     setListLoading(true)
     setError("")
     try {
       const db = getClient()
-      const [rows, adminRows] = await Promise.all([fetchMurid(db), fetchAdmins(db)])
+      const [rows, adminRows] = await Promise.all([fetchMurid(db, admin.id), fetchAdmins(db)])
       setMurid(rows)
       setAdmins(adminRows)
     } catch (err) {
@@ -100,12 +101,17 @@ export default function AdminPage() {
   }
 
   async function submitUpload() {
-    if (!upload?.rows.length) return
+    if (!upload?.rows.length || !admin) return
     setUploading(true)
     setError("")
     try {
-      await upsertMurid(getClient(), upload.rows)
-      setNotice(`${upload.rows.length} rekod dimuat naik ke Supabase.`)
+      const result = await upsertMurid(getClient(), upload.rows, admin.id)
+      const skipped = result.skipped.length
+      setNotice(
+        skipped
+          ? `${result.uploaded} rekod dimuat naik. ${skipped} ID milik admin lain dilangkau.`
+          : `${result.uploaded} rekod dimuat naik ke Supabase.`,
+      )
       setUpload(null)
       await refresh()
     } catch (err) {
@@ -138,13 +144,18 @@ export default function AdminPage() {
 
   async function addOne(event: FormEvent) {
     event.preventDefault()
+    if (!admin) return
     setError("")
     try {
-      await insertMurid(getClient(), {
-        kelas: form.kelas.trim(),
-        id_delima: form.id_delima.trim(),
-        nama: form.nama.trim(),
-      })
+      await insertMurid(
+        getClient(),
+        {
+          kelas: form.kelas.trim(),
+          id_delima: form.id_delima.trim(),
+          nama: form.nama.trim(),
+        },
+        admin.id,
+      )
       setForm({ kelas: form.kelas, id_delima: "", nama: "" })
       setNotice("Murid ditambah.")
       await refresh()
@@ -233,7 +244,7 @@ export default function AdminPage() {
           <section className="border border-line bg-card p-4">
             <p className="text-[11px] font-semibold tracking-[0.16em] text-delima uppercase">Ringkasan</p>
             <p className="mt-2 text-3xl font-semibold">{murid.length}</p>
-            <p className="text-sm text-ink/70">murid · {kelasList.length} kelas</p>
+            <p className="text-sm text-ink/70">murid anda · {kelasList.length} kelas</p>
           </section>
 
           <section className="border border-line bg-card p-4">
@@ -348,7 +359,8 @@ export default function AdminPage() {
               }}
               className="mt-4 border border-dashed border-delima/30 bg-paper px-4 py-6 text-center text-sm text-ink/65"
             >
-              Seret fail CSV ke sini. Lajur: <code className="font-mono">kelas,id_delima,nama</code>
+              Seret fail CSV ke sini. Lajur: <code className="font-mono">kelas,id_delima,nama</code>.
+              Hanya rekod yang anda muat naik boleh diurus.
             </div>
           </div>
 
@@ -404,7 +416,7 @@ export default function AdminPage() {
                 ) : visible.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-ink/60">
-                      Tiada rekod. Muat naik CSV atau tambah murid.
+                      Tiada rekod anda. Muat naik CSV atau tambah murid.
                     </td>
                   </tr>
                 ) : (
@@ -436,8 +448,8 @@ export default function AdminPage() {
           <div className="w-full max-w-xl border border-line bg-card p-5 shadow-xl">
             <h2 className="text-lg font-semibold">Papar CSV sebelum muat naik</h2>
             <p className="mt-1 text-sm text-ink/70">
-              {upload.fileName}: {upload.rows.length} murid, {upload.kelasCount} kelas. ID yang sama akan
-              dikemaskini.
+              {upload.fileName}: {upload.rows.length} murid, {upload.kelasCount} kelas. ID anda yang sama
+              akan dikemaskini. ID milik admin lain dilangkau.
             </p>
             {upload.errors.length ? (
               <ul className="mt-3 max-h-28 overflow-auto rounded-md bg-red-50 p-3 text-sm text-red-800">
@@ -508,7 +520,7 @@ function SetupScreen({
       <Brand />
       <h1 className="mt-8 text-3xl font-semibold tracking-tight">Tetapan Supabase</h1>
       <p className="mt-2 text-ink/70">
-        Jalankan SQL ini sekali supaya jadual admin, fungsi daftar user, dan polisi RLS berfungsi.
+        Jalankan SQL ini sekali supaya setiap admin hanya mengurus rekod yang mereka muat naik.
       </p>
       <pre className="mt-4 max-h-48 overflow-auto rounded-md bg-delima-deep p-3 font-mono text-xs text-paper">{SCHEMA_SQL}</pre>
       <button
