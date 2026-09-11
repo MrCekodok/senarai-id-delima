@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --color-ink: #1c1410;
-  --color-paper: #f6efe6;
-  --color-card: #fffaf4;
-  --color-line: #e6d8c8;
-  --color-delima: #b4234e;
-  --color-delima-deep: #8a1638;
-  --color-leaf: #1f6b57;
+  --color-ink: #0f172a;
+  --color-paper: #f3f5f8;
+  --color-card: #ffffff;
+  --color-line: #d7dee8;
+  --color-delima: #0b3a67;
+  --color-delima-deep: #082a4d;
+  --color-leaf: #0f766e;
 }
 
 html,
@@ -22,11 +22,25 @@ body {
   margin: 0;
   color: var(--color-ink);
   background:
-    radial-gradient(circle at top left, rgba(180, 35, 78, 0.08), transparent 28%),
+    linear-gradient(var(--color-delima), var(--color-delima)) top / 100% 4px no-repeat,
     var(--color-paper);
   font-family: var(--font-sans);
 }
 
-::selection {
-  background: rgba(180, 35, 78, 0.18);
+h1,
+h2,
+h3 {
+  letter-spacing: -0.03em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

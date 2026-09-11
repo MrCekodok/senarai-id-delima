@@ -1,5 +1,9 @@
 const STORAGE_KEY = "delima-supabase-config"
 
+const DEFAULT_URL = "https://hiuvcfmemcexbqplfcdy.supabase.co"
+const DEFAULT_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhpdXZjZm1lbWNleGJxcGxmY2R5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwODg5NzMsImV4cCI6MjEwNDY2NDk3M30.tf6pJ4kdi5usOBLH9797KWMFLWx7YGKqylPURiIb6hY"
+
 export type AppConfig = {
   url: string
   anonKey: string
@@ -12,13 +16,15 @@ export function getConfig(): AppConfig | null {
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as AppConfig
-    if (parsed.url && parsed.anonKey) return parsed
+    if (raw) {
+      const parsed = JSON.parse(raw) as AppConfig
+      if (parsed.url && parsed.anonKey) return parsed
+    }
   } catch {
-    return null
+    // guna tetapan kekal di bawah
   }
-  return null
+
+  return { url: DEFAULT_URL, anonKey: DEFAULT_ANON_KEY }
 }
 
 export function saveConfig(config: AppConfig) {

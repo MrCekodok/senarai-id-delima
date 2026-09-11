@@ -7,6 +7,20 @@ export type Murid = {
   updated_at: string
 }
 
+export type MuridCarian = {
+  id: string
+  nama: string
+  kelas: string
+  id_delima: string
+}
+
+export type Admin = {
+  id: string
+  email: string
+  nama: string
+  created_at: string
+}
+
 export type CsvRow = {
   kelas: string
   id_delima: string
