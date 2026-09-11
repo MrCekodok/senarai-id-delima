@@ -104,10 +104,23 @@ export async function fetchAdmin(db: SupabaseClient, userId: string) {
   return data as Admin | null
 }
 
-export async function createAdmin(
+export async function fetchAdmins(db: SupabaseClient) {
+  const { data, error } = await db
+    .from("admin")
+    .select("id, email, nama, created_at")
+    .order("nama", { ascending: true })
+  if (error) throw error
+  return (data ?? []) as Admin[]
+}
+
+export async function daftarAdmin(
   db: SupabaseClient,
-  row: { id: string; email: string; nama: string },
+  row: { email: string; password: string; nama: string },
 ) {
-  const { error } = await db.from("admin").upsert(row, { onConflict: "id" })
+  const { error } = await db.rpc("daftar_admin", {
+    p_email: row.email,
+    p_password: row.password,
+    p_nama: row.nama,
+  })
   if (error) throw error
 }

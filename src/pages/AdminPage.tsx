@@ -12,13 +12,15 @@ import {
 import { humanError } from "../lib/errors"
 import { SCHEMA_SQL } from "../lib/schema"
 import {
+  daftarAdmin,
   deleteMurid,
+  fetchAdmins,
   fetchMurid,
   getClient,
   insertMurid,
   upsertMurid,
 } from "../lib/supabase"
-import type { CsvRow, Murid } from "../lib/types"
+import type { Admin, CsvRow, Murid } from "../lib/types"
 import { downloadText, parseCsv, toCsv } from "../lib/csv"
 
 type UploadState = {
@@ -41,6 +43,9 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
   const [form, setForm] = useState({ kelas: "", id_delima: "", nama: "" })
+  const [invite, setInvite] = useState({ nama: "", email: "", password: "" })
+  const [inviting, setInviting] = useState(false)
+  const [admins, setAdmins] = useState<Admin[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const github = githubRepoUrl()
 
@@ -48,8 +53,10 @@ export default function AdminPage() {
     setListLoading(true)
     setError("")
     try {
-      const rows = await fetchMurid(getClient())
+      const db = getClient()
+      const [rows, adminRows] = await Promise.all([fetchMurid(db), fetchAdmins(db)])
       setMurid(rows)
+      setAdmins(adminRows)
     } catch (err) {
       setError(humanError(err))
     } finally {
@@ -105,6 +112,27 @@ export default function AdminPage() {
       setError(humanError(err))
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function addAdmin(event: FormEvent) {
+    event.preventDefault()
+    setError("")
+    setInviting(true)
+    try {
+      const nama = invite.nama.trim()
+      await daftarAdmin(getClient(), {
+        nama,
+        email: invite.email.trim(),
+        password: invite.password,
+      })
+      setInvite({ nama: "", email: "", password: "" })
+      setNotice(`Admin ${nama} didaftarkan. Tiada emel pengesahan dihantar.`)
+      await refresh()
+    } catch (err) {
+      setError(humanError(err))
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -206,6 +234,55 @@ export default function AdminPage() {
             <p className="text-[11px] font-semibold tracking-[0.16em] text-delima uppercase">Ringkasan</p>
             <p className="mt-2 text-3xl font-semibold">{murid.length}</p>
             <p className="text-sm text-ink/70">murid · {kelasList.length} kelas</p>
+          </section>
+
+          <section className="border border-line bg-card p-4">
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-delima uppercase">Daftar admin</p>
+            <p className="mt-1 text-xs leading-relaxed text-ink/55">
+              Hanya admin yang log masuk boleh cipta akaun baru. Akaun terus aktif, tanpa emel.
+            </p>
+            <form onSubmit={addAdmin} className="mt-3 space-y-2">
+              <input
+                required
+                value={invite.nama}
+                onChange={(event) => setInvite({ ...invite, nama: event.target.value })}
+                placeholder="Nama pengguna"
+                className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none ring-delima/20 focus:border-delima focus:ring-4"
+              />
+              <input
+                required
+                type="email"
+                value={invite.email}
+                onChange={(event) => setInvite({ ...invite, email: event.target.value })}
+                placeholder="Emel"
+                className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none ring-delima/20 focus:border-delima focus:ring-4"
+              />
+              <input
+                required
+                type="password"
+                minLength={6}
+                value={invite.password}
+                onChange={(event) => setInvite({ ...invite, password: event.target.value })}
+                placeholder="Kata laluan"
+                className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none ring-delima/20 focus:border-delima focus:ring-4"
+              />
+              <button
+                type="submit"
+                disabled={inviting}
+                className="w-full rounded-md bg-delima px-3 py-2 text-sm font-medium text-white hover:bg-delima-deep disabled:opacity-50"
+              >
+                {inviting ? "Mendaftar..." : "Daftar user"}
+              </button>
+            </form>
+            {admins.length ? (
+              <ul className="mt-3 space-y-1 text-xs text-ink/70">
+                {admins.map((row) => (
+                  <li key={row.id}>
+                    {row.nama} · {row.email}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <section className="border border-line bg-card p-3">
@@ -430,7 +507,9 @@ function SetupScreen({
     <div className="mx-auto max-w-3xl px-5 py-10">
       <Brand />
       <h1 className="mt-8 text-3xl font-semibold tracking-tight">Tetapan Supabase</h1>
-      <p className="mt-2 text-ink/70">Jalankan SQL ini sekali supaya jadual admin dan polisi log masuk berfungsi.</p>
+      <p className="mt-2 text-ink/70">
+        Jalankan SQL ini sekali supaya jadual admin, fungsi daftar user, dan polisi RLS berfungsi.
+      </p>
       <pre className="mt-4 max-h-48 overflow-auto rounded-md bg-delima-deep p-3 font-mono text-xs text-paper">{SCHEMA_SQL}</pre>
       <button
         type="button"

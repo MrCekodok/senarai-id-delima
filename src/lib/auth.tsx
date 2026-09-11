@@ -6,14 +6,13 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { createAdmin, fetchAdmin, getClient } from "./supabase"
+import { fetchAdmin, getClient } from "./supabase"
 import type { Admin } from "./types"
 
 type AuthContextValue = {
   loading: boolean
   admin: Admin | null
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (nama: string, email: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
 }
 
@@ -33,19 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
-        let profile = await fetchAdmin(db, userId)
-        if (!profile) {
-          const { data: userData } = await db.auth.getUser()
-          const user = userData.user
-          if (user?.email) {
-            await createAdmin(db, {
-              id: user.id,
-              email: user.email,
-              nama: String(user.user_metadata.nama || user.email),
-            })
-            profile = await fetchAdmin(db, user.id)
-          }
-        }
+        const profile = await fetchAdmin(db, userId)
         if (active) setAdmin(profile)
       } catch {
         if (active) setAdmin(null)
@@ -75,31 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       admin,
       async signIn(email, password) {
-        const { error } = await db.auth.signInWithPassword({ email, password })
+        const { data, error } = await db.auth.signInWithPassword({ email, password })
         if (error) throw error
-      },
-      async signUp(nama, email, password) {
-        const { data, error } = await db.auth.signUp({
-          email,
-          password,
-          options: { data: { nama } },
-        })
-        if (error) throw error
-        if (data.user && data.session) {
-          await createAdmin(db, {
-            id: data.user.id,
-            email,
-            nama,
-          })
-          setAdmin({
-            id: data.user.id,
-            email,
-            nama,
-            created_at: new Date().toISOString(),
-          })
-          return null
+        const userId = data.user?.id
+        if (!userId) throw new Error("Sesi log masuk tidak lengkap.")
+        const profile = await fetchAdmin(db, userId)
+        if (!profile) {
+          await db.auth.signOut()
+          throw new Error("Akaun ini bukan admin.")
         }
-        return "Akaun dicipta. Sahkan emel jika diminta, kemudian log masuk."
+        setAdmin(profile)
       },
       async signOut() {
         await db.auth.signOut()

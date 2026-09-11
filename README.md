@@ -19,6 +19,8 @@ Templat: `public/contoh-murid.csv`
 2. Jalankan `supabase/schema.sql` dalam SQL Editor.
 3. Salin Project URL dan anon key ke `.env.local`, atau tampal dalam skrin tetapan aplikasi.
 
+Pendaftaran akaun ditutup kepada orang ramai. Admin yang sudah log masuk boleh daftar user lain di halaman admin. Akaun dicipta terus tanpa emel pengesahan.
+
 ```bash
 cp .env.example .env.local
 ```
