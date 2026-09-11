@@ -31,5 +31,5 @@ export function clearConfig() {
 
 export function githubRepoUrl() {
   const repo = import.meta.env.VITE_GITHUB_REPO?.trim()
-  return repo || ""
+  return repo || "https://github.com/MrCekodok/senarai-id-delima"
 }

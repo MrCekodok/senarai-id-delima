@@ -25,7 +25,7 @@ cp .env.example .env.local
 
 ## GitHub
 
-Kod sumber didorong ke repositori GitHub projek ini. Isi `VITE_GITHUB_REPO` dengan pautan repo.
+Repositori: [github.com/MrCekodok/senarai-id-delima](https://github.com/MrCekodok/senarai-id-delima)
 
 ## Jalankan
 
