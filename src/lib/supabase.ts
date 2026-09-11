@@ -117,6 +117,20 @@ export async function deleteMurid(db: SupabaseClient, id: string) {
   if (error) throw error
 }
 
+export async function deleteMuridMany(db: SupabaseClient, ids: string[]) {
+  const chunkSize = 200
+  for (let from = 0; from < ids.length; from += chunkSize) {
+    const chunk = ids.slice(from, from + chunkSize)
+    const { error } = await db.from("murid").delete().in("id", chunk)
+    if (error) throw error
+  }
+}
+
+export async function confirmAdminPassword(db: SupabaseClient, email: string, password: string) {
+  const { error } = await db.auth.signInWithPassword({ email, password })
+  if (error) throw error
+}
+
 export async function fetchAdmin(db: SupabaseClient, userId: string) {
   const { data, error } = await db
     .from("admin")
@@ -125,15 +139,6 @@ export async function fetchAdmin(db: SupabaseClient, userId: string) {
     .maybeSingle()
   if (error) throw error
   return data as Admin | null
-}
-
-export async function fetchAdmins(db: SupabaseClient) {
-  const { data, error } = await db
-    .from("admin")
-    .select("id, email, nama, created_at")
-    .order("nama", { ascending: true })
-  if (error) throw error
-  return (data ?? []) as Admin[]
 }
 
 export async function daftarAdmin(

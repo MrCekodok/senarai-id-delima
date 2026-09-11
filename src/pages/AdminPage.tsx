@@ -12,15 +12,15 @@ import {
 import { humanError } from "../lib/errors"
 import { SCHEMA_SQL } from "../lib/schema"
 import {
+  confirmAdminPassword,
   daftarAdmin,
-  deleteMurid,
-  fetchAdmins,
+  deleteMuridMany,
   fetchMurid,
   getClient,
   insertMurid,
   upsertMurid,
 } from "../lib/supabase"
-import type { Admin, CsvRow, Murid } from "../lib/types"
+import type { CsvRow, Murid } from "../lib/types"
 import { downloadText, parseCsv, toCsv } from "../lib/csv"
 
 type UploadState = {
@@ -45,7 +45,11 @@ export default function AdminPage() {
   const [form, setForm] = useState({ kelas: "", id_delima: "", nama: "" })
   const [invite, setInvite] = useState({ nama: "", email: "", password: "" })
   const [inviting, setInviting] = useState(false)
-  const [admins, setAdmins] = useState<Admin[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null)
+  const [deletePassword, setDeletePassword] = useState("")
+  const [deleteError, setDeleteError] = useState("")
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const github = githubRepoUrl()
 
@@ -54,10 +58,16 @@ export default function AdminPage() {
     setListLoading(true)
     setError("")
     try {
-      const db = getClient()
-      const [rows, adminRows] = await Promise.all([fetchMurid(db, admin.id), fetchAdmins(db)])
+      const rows = await fetchMurid(getClient(), admin.id)
       setMurid(rows)
-      setAdmins(adminRows)
+      setSelected((prev) => {
+        const next = new Set<string>()
+        const ids = new Set(rows.map((row) => row.id))
+        prev.forEach((id) => {
+          if (ids.has(id)) next.add(id)
+        })
+        return next
+      })
     } catch (err) {
       setError(humanError(err))
     } finally {
@@ -165,12 +175,50 @@ export default function AdminPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Padam rekod murid ini?")) return
+    setDeleteError("")
+    setDeletePassword("")
+    setDeleteIds([id])
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleVisible() {
+    const allSelected = visible.length > 0 && visible.every((row) => selected.has(row.id))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      visible.forEach((row) => {
+        if (allSelected) next.delete(row.id)
+        else next.add(row.id)
+      })
+      return next
+    })
+  }
+
+  async function confirmBulkDelete(event: FormEvent) {
+    event.preventDefault()
+    if (!admin || !deleteIds?.length) return
+    setDeleting(true)
+    setDeleteError("")
     try {
-      await deleteMurid(getClient(), id)
+      const db = getClient()
+      await confirmAdminPassword(db, admin.email, deletePassword)
+      await deleteMuridMany(db, deleteIds)
+      setNotice(`${deleteIds.length} rekod murid dipadam.`)
+      setDeleteIds(null)
+      setDeletePassword("")
+      setSelected(new Set())
       await refresh()
     } catch (err) {
-      setError(humanError(err))
+      setDeleteError(humanError(err))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -285,15 +333,7 @@ export default function AdminPage() {
                 {inviting ? "Mendaftar..." : "Daftar user"}
               </button>
             </form>
-            {admins.length ? (
-              <ul className="mt-3 space-y-1 text-xs text-ink/70">
-                {admins.map((row) => (
-                  <li key={row.id}>
-                    {row.nama} · {row.email}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            <p className="mt-3 text-sm font-medium text-ink">{admin.nama}</p>
           </section>
 
           <section className="border border-line bg-card p-3">
@@ -349,6 +389,18 @@ export default function AdminPage() {
               >
                 Muat turun CSV
               </button>
+              <button
+                type="button"
+                disabled={selected.size === 0}
+                onClick={() => {
+                  setDeleteError("")
+                  setDeletePassword("")
+                  setDeleteIds([...selected])
+                }}
+                className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-800 hover:bg-red-50 disabled:opacity-40"
+              >
+                Padam dipilih{selected.size ? ` (${selected.size})` : ""}
+              </button>
             </div>
             <div
               onDragOver={(event) => event.preventDefault()}
@@ -400,6 +452,15 @@ export default function AdminPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-paper text-[11px] tracking-[0.12em] text-ink/50 uppercase">
                 <tr>
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={visible.length > 0 && visible.every((row) => selected.has(row.id))}
+                      onChange={toggleVisible}
+                      disabled={listLoading || visible.length === 0}
+                      aria-label="Pilih semua rekod yang dipaparkan"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-semibold">Kelas</th>
                   <th className="px-4 py-3 font-semibold">ID DELIMA</th>
                   <th className="px-4 py-3 font-semibold">Nama</th>
@@ -409,19 +470,27 @@ export default function AdminPage() {
               <tbody>
                 {listLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-ink/60">
+                    <td colSpan={5} className="px-4 py-8 text-center text-ink/60">
                       Memuat senarai dari Supabase...
                     </td>
                   </tr>
                 ) : visible.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-ink/60">
+                    <td colSpan={5} className="px-4 py-8 text-center text-ink/60">
                       Tiada rekod anda. Muat naik CSV atau tambah murid.
                     </td>
                   </tr>
                 ) : (
                   visible.map((row) => (
                     <tr key={row.id} className="border-t border-line">
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(row.id)}
+                          onChange={() => toggleSelected(row.id)}
+                          aria-label={`Pilih ${row.nama || row.id_delima}`}
+                        />
+                      </td>
                       <td className="px-4 py-3">{row.kelas}</td>
                       <td className="px-4 py-3 font-mono">{row.id_delima}</td>
                       <td className="px-4 py-3">{row.nama || "—"}</td>
@@ -442,6 +511,56 @@ export default function AdminPage() {
           </div>
         </section>
       </main>
+
+      {deleteIds ? (
+        <div className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <form
+            onSubmit={confirmBulkDelete}
+            className="w-full max-w-md border border-line bg-card p-5 shadow-xl"
+          >
+            <h2 className="text-lg font-semibold">Sahkan padam rekod</h2>
+            <p className="mt-2 text-sm text-ink/70">
+              {deleteIds.length} rekod murid akan dipadam secara kekal. Masukkan kata laluan anda untuk
+              meneruskan.
+            </p>
+            <input
+              required
+              type="password"
+              minLength={6}
+              value={deletePassword}
+              onChange={(event) => setDeletePassword(event.target.value)}
+              placeholder="Kata laluan"
+              autoComplete="current-password"
+              className="mt-4 w-full rounded-md border border-line bg-paper px-3 py-2.5 outline-none ring-delima/20 focus:border-delima focus:ring-4"
+            />
+            {deleteError ? (
+              <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {deleteError}
+              </p>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteIds(null)
+                  setDeletePassword("")
+                  setDeleteError("")
+                }}
+                className="rounded-md border border-line px-4 py-2 text-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={deleting}
+                className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {deleting ? "Memadam..." : "Padam rekod"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       {upload ? (
         <div className="fixed inset-0 z-10 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
